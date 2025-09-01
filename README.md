@@ -32,7 +32,7 @@ Virtual function calls are resolved by creating a "perfect hash table" at runtim
 
 ### Jump Tables
 
-Jump tables, at least in older Xbox 360 binaries, often have predictable assembly patterns, making them easy to detect statically without needing a virtual machine. XenonAnalyse has logic for detecting jump tables in Sonic Unleashed, though variations in other games (likely due to updates in the Xbox 360 compiler) may require modifications to the detection logic. Currently, there is no fully generic solution for handling jump tables, so updates to the detection logic may be needed for other games.
+Jump tables, at least in older Xbox 360 binaries, often have predictable assembly patterns, making them easy to detect statically without needing a virtual machine. XenonAnalyse has logic for detecting jump tables in Sonic Mw05, though variations in other games (likely due to updates in the Xbox 360 compiler) may require modifications to the detection logic. Currently, there is no fully generic solution for handling jump tables, so updates to the detection logic may be needed for other games.
 
 The typical way to find jump tables is by searching for the `mtctr r0` instruction. It will almost always be followed with a `bctr`, with the previous instructions computing the jump address.
 
@@ -66,7 +66,7 @@ The following registers, assuming the game doesn't violate the ABI, can be safel
 * Non argument registers
 * Non volatile registers
 
-The local variable optimization particularly introduces the most improvements, as the calls to the register restore/save functions can be completely removed, and the redundant stores to the PPC context struct can be eliminated. In [Unleashed Recompiled](https://github.com/hedge-dev/UnleashedRecomp), the executable size decreases by around 20 MB with these optimizations, and frame times are reduced by several milliseconds.
+The local variable optimization particularly introduces the most improvements, as the calls to the register restore/save functions can be completely removed, and the redundant stores to the PPC context struct can be eliminated. In [Mw05 Recompiled](https://github.com/sh2dow/Mw05Recomp), the executable size decreases by around 20 MB with these optimizations, and frame times are reduced by several milliseconds.
 
 ### Patch Mechanisms
 
@@ -94,7 +94,7 @@ XenonAnalyse [input XEX file path] [output jump table TOML file path]
 
 However, as explained in the earlier sections, due to variations between games, additional support may be needed to handle different patterns.
 
-[An example jump table TOML file can be viewed in the Unleashed Recompiled repository.](https://github.com/hedge-dev/UnleashedRecomp/blob/main/UnleashedRecompLib/config/SWA_switch_tables.toml)
+[An example jump table TOML file can be viewed in the Mw05 Recompiled repository.](https://github.com/sh2dow/Mw05Recomp/blob/main/Mw05RecompLib/config/SWA_switch_tables.toml)
 
 ### XenonRecomp
 
@@ -104,7 +104,7 @@ XenonRecomp accepts a TOML file with recompiler configurations and the path to t
 XenonRecomp [input TOML file path] [input PPC context header file path]
 ```
 
-[An example recompiler TOML file can be viewed in the Unleashed Recompiled repository.](https://github.com/hedge-dev/UnleashedRecomp/blob/main/UnleashedRecompLib/config/SWA.toml)
+[An example recompiler TOML file can be viewed in the Mw05 Recompiled repository.](https://github.com/sh2dow/Mw05Recomp/blob/main/Mw05RecompLib/config/SWA.toml)
 
 #### Main
 
@@ -202,7 +202,7 @@ invalid_instructions = [
 ]
 ```
 
-In the `invalid_instructions` property, you can define 32-bit integer values that instruct the recompiler to skip over certain bytes when it encounters them. For example, in Unleashed Recompiled, these are used to skip over exception handling data, which is placed between functions but is not valid code.
+In the `invalid_instructions` property, you can define 32-bit integer values that instruct the recompiler to skip over certain bytes when it encounters them. For example, in Mw05 Recompiled, these are used to skip over exception handling data, which is placed between functions but is not valid code.
 
 #### Mid-asm Hooks
 
