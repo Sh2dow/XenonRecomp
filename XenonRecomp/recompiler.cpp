@@ -1260,7 +1260,11 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_MFTB:
+        println("#if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__x86_64__)");
         println("\t{}.u64 = __rdtsc();", r(insn.operands[0]));
+        println("#else");
+        println("\t{}.u64 = 0;", r(insn.operands[0]));
+        println("#endif");
         break;
 
     case PPC_INST_MR:
@@ -2502,7 +2506,10 @@ bool Recompiler::Recompile(const Function& fn)
 
 void Recompiler::Recompile(const std::filesystem::path& headerFilePath)
 {
-    out.reserve(10 * 1024 * 1024);
+    {
+        size_t reserve = config.maxTuBytes ? std::max<size_t>(1 << 20, config.maxTuBytes) : (10 * 1024 * 1024);
+        out.reserve(reserve);
+    }
 
     {
         println("#pragma once");
@@ -2583,7 +2590,10 @@ void Recompiler::Recompile(const std::filesystem::path& headerFilePath)
         println("#include \"ppc_config.h\"");
         println("#include \"ppc_context.h\"\n");
 
-        for (auto& symbol : image.symbols)
+        // Deterministic ordering for stable diffs
+        std::vector<decltype(image.symbols)::value_type> syms(image.symbols.begin(), image.symbols.end());
+        std::sort(syms.begin(), syms.end(), [](const auto& a, const auto& b){ return a.address < b.address; });
+        for (auto& symbol : syms)
             println("PPC_EXTERN_FUNC({});", symbol.name);
 
         SaveCurrentOutData("ppc_recomp_shared.h");
@@ -2593,7 +2603,9 @@ void Recompiler::Recompile(const std::filesystem::path& headerFilePath)
         println("#include \"ppc_recomp_shared.h\"\n");
 
         println("PPCFuncMapping PPCFuncMappings[] = {{");
-        for (auto& symbol : image.symbols)
+        std::vector<decltype(image.symbols)::value_type> syms(image.symbols.begin(), image.symbols.end());
+        std::sort(syms.begin(), syms.end(), [](const auto& a, const auto& b){ return a.address < b.address; });
+        for (auto& symbol : syms)
             println("\t{{ 0x{:X}, {} }},", symbol.address, symbol.name);
 
         println("\t{{ 0, nullptr }}");
@@ -2604,16 +2616,24 @@ void Recompiler::Recompile(const std::filesystem::path& headerFilePath)
 
     for (size_t i = 0; i < functions.size(); i++)
     {
-        if ((i % 256) == 0)
+        if ((i % config.functionsPerFile) == 0)
         {
             SaveCurrentOutData();
             println("#include \"ppc_recomp_shared.h\"\n");
+            fmt::println("Starting TU shard {} (func {} / {})", cppFileIndex, i + 1, functions.size());
         }
 
-        if ((i % 2048) == 0 || (i == (functions.size() - 1)))
+        if ((i % config.progressInterval) == 0 || (i == (functions.size() - 1)))
             fmt::println("Recompiling functions... {}%", static_cast<float>(i + 1) / functions.size() * 100.0f);
 
         Recompile(functions[i]);
+
+        if (config.maxTuBytes && out.size() >= config.maxTuBytes)
+        {
+            SaveCurrentOutData();
+            println("#include \"ppc_recomp_shared.h\"\n");
+            fmt::println("Starting TU shard {} (size-capped at ~{} bytes)", cppFileIndex, config.maxTuBytes);
+        }
     }
 
     SaveCurrentOutData();
@@ -2638,8 +2658,11 @@ void Recompiler::SaveCurrentOutData(const std::string_view& name)
         if (!directoryPath.empty())
             directoryPath += "/";
 
-        std::string filePath = fmt::format("{}{}/{}", directoryPath, config.outDirectoryPath, name.empty() ? cppName : name);
-        FILE* f = fopen(filePath.c_str(), "rb");
+        std::filesystem::path outPath = std::filesystem::path(directoryPath) / config.outDirectoryPath / (name.empty() ? cppName : std::string(name));
+        std::error_code ec;
+        std::filesystem::create_directories(outPath.parent_path(), ec);
+
+        FILE* f = fopen(outPath.string().c_str(), "rb");
         if (f)
         {
             static std::vector<uint8_t> temp;
@@ -2659,7 +2682,7 @@ void Recompiler::SaveCurrentOutData(const std::string_view& name)
 
         if (shouldWrite)
         {
-            f = fopen(filePath.c_str(), "wb");
+            f = fopen(outPath.string().c_str(), "wb");
             fwrite(out.data(), 1, out.size(), f);
             fclose(f);
         }
