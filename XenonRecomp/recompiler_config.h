@@ -53,10 +53,5 @@ struct RecompilerConfig
     std::unordered_map<uint32_t, uint32_t> invalidInstructions;
     std::unordered_map<uint32_t, RecompilerMidAsmHook> midAsmHooks;
 
-    // Codegen controls
-    size_t functionsPerFile = 128;     // split TU after N functions
-    size_t progressInterval = 2048;    // progress print frequency
-    size_t maxTuBytes = 0;             // optional TU size cap (0 = unlimited)
-
     void Load(const std::string_view& configFilePath);
 };
