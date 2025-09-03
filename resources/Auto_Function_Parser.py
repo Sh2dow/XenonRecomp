@@ -1,4 +1,14 @@
-# usage: python .\Auto_Function_Parser.py f:\XBox\Recomp\MW05\NfsMWEurope.xex.html out_tdb.txt mw05_switch_tables.toml --addr-range 0x82000000-0x83FFFFFF --min-size 0x20 --segment ".text"
+r"""
+usage:
+  python .\Auto_Function_Parser.py f:\XBox\Recomp\MW05\NfsMWEurope.xex.html out_tdb.txt mw05_switch_tables.toml \
+         --addr-range 0x82000000-0x83FFFFFF --min-size 0x20 --segment ".text"
+
+Additional flags for safer batches (defaults keep legacy behavior):
+  --max-size 0x4000          Skip functions larger than this (default: off)
+  --enforce-align             Require 0x10 alignment for start address (default: off)
+  --no-overlap                Drop functions overlapping already accepted ones (default: off)
+  --batch-size N              Emit only first N by safety ranking (default: all)
+"""
 
 import sys, re
 
@@ -20,8 +30,12 @@ output_file = sys.argv[3]
 # Defaults
 addr_range = None
 min_size = 0
+max_size = None
 segment_name = None
 dump_all_if_no_switch = True  # <-- default ON
+enforce_align = False
+no_overlap = False
+batch_size = None
 
 # Parse flags
 i = 4
@@ -34,8 +48,23 @@ while i < len(sys.argv):
     if tok == "--min-size" and (i + 1) < len(sys.argv):
         min_size = int(sys.argv[i+1], 16)
         i += 2; continue
+    if tok == "--max-size" and (i + 1) < len(sys.argv):
+        max_size = int(sys.argv[i+1], 16)
+        i += 2; continue
     if tok == "--segment" and (i + 1) < len(sys.argv):
         segment_name = sys.argv[i+1]
+        i += 2; continue
+    if tok == "--enforce-align":
+        enforce_align = True
+        i += 1; continue
+    if tok == "--no-overlap":
+        no_overlap = True
+        i += 1; continue
+    if tok == "--batch-size" and (i + 1) < len(sys.argv):
+        try:
+            batch_size = int(sys.argv[i+1], 0)
+        except ValueError:
+            batch_size = None
         i += 2; continue
     if tok == "--no-dump-all":
         dump_all_if_no_switch = False
@@ -121,11 +150,35 @@ for i, (_, start_int) in enumerate(ordered):
         end_int = start_int + 0x40
     functs.append([start_int, end_int])
 
-# Min-size
+def _size(f):
+    return f[1] - f[0]
+
+# Min-size / Max-size / Alignment
 if min_size:
     before = len(functs)
-    functs = [f for f in functs if (f[1] - f[0]) >= min_size]
+    functs = [f for f in functs if _size(f) >= min_size]
     print(f"Min-size 0x{min_size:X}: {len(functs)} (was {before})")
+if max_size is not None:
+    before = len(functs)
+    functs = [f for f in functs if _size(f) <= max_size]
+    print(f"Max-size 0x{max_size:X}: {len(functs)} (was {before})")
+if enforce_align:
+    before = len(functs)
+    functs = [f for f in functs if (f[0] % 16) == 0]
+    print(f"Alignment (16B) kept: {len(functs)} (was {before})")
+
+# Sort by start then size for deterministic overlap pass
+functs.sort(key=lambda f: (f[0], _size(f)))
+
+if no_overlap and functs:
+    compact = []
+    last_end = -1
+    for s, e in functs:
+        if s >= last_end:
+            compact.append([s, e])
+            last_end = e
+    print(f"Overlap removal: {len(compact)} (was {len(functs)})")
+    functs = compact
 
 # Map or dump-all
 print("Searching for needed functions...")
@@ -160,9 +213,15 @@ else:
 print(f"{len(output)} functions found!")
 print("Outputting to formatted file...")
 
+# Prefer smaller first (safer), then address
+output.sort(key=lambda t: (int(t[1], 16), int(t[0], 16)))
+if batch_size:
+    print(f"Batch-size in effect: {batch_size}")
+    output = output[:batch_size]
+
 parts = ["functions = ["]
 for start_hex, size_hex in output:
-    parts.append(f'\n    {{ address = 0x{start_hex[2:].upper()}, size = 0x{size_hex[2:].upper()} }},')
+    parts.append(f"\n    {{ address = 0x{start_hex[2:].upper()}, size = 0x{size_hex[2:].upper()} }},")
 if len(parts) > 1:
     parts[-1] = parts[-1].rstrip(',')
 parts.append("\n]")
