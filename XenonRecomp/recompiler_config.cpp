@@ -27,6 +27,11 @@ void RecompilerConfig::Load(const std::string_view& configFilePath)
         nonArgumentRegistersAsLocalVariables = main["non_argument_as_local"].value_or(false);
         nonVolatileRegistersAsLocalVariables = main["non_volatile_as_local"].value_or(false);
 
+        // Codegen controls (optional)
+        functionsPerFile = main["functions_per_file"].value_or(functionsPerFile);
+        progressInterval = main["progress_interval"].value_or(progressInterval);
+        maxTuBytes = main["max_tu_bytes"].value_or(maxTuBytes);
+
         restGpr14Address = main["restgprlr_14_address"].value_or(0u);
         saveGpr14Address = main["savegprlr_14_address"].value_or(0u);
         restFpr14Address = main["restfpr_14_address"].value_or(0u);
