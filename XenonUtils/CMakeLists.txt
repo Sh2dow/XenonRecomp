@@ -7,6 +7,7 @@ add_library(XenonUtils
     "xdbf_wrapper.cpp"
     "xex_patcher.cpp"
     "memory_mapped_file.cpp"
+    "guest_mem_stub.cpp"
     "${THIRDPARTY_ROOT}/libmspack/libmspack/mspack/lzxd.c"
     "${THIRDPARTY_ROOT}/tiny-AES-c/aes.c"
 )
@@ -14,6 +15,7 @@ add_library(XenonUtils
 target_compile_definitions(XenonUtils
     PRIVATE
         NOMINMAX
+        XENON_RECOMP_TOOL=1
 )
 
 target_include_directories(XenonUtils 

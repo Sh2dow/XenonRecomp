@@ -22,10 +22,14 @@ int main(int argc, char* argv[])
     if (std::filesystem::is_regular_file(path))
     {
         Recompiler recompiler;
+        fmt::println("[XenonRecomp] Config: {}", path);
         if (!recompiler.LoadConfig(path))
             return -1;
+        fmt::println("[XenonRecomp] LoadConfig OK");
 
+        fmt::println("[XenonRecomp] Begin Analyse()");
         recompiler.Analyse();
+        fmt::println("[XenonRecomp] Analyse() done");
 
         auto entry = recompiler.image.symbols.find(recompiler.image.entry_point);
         if (entry != recompiler.image.symbols.end())
@@ -41,7 +45,9 @@ int main(int argc, char* argv[])
 #endif
             ;
 
+        fmt::println("[XenonRecomp] Begin Recompile() using header: {}", headerFilePath);
         recompiler.Recompile(headerFilePath);
+        fmt::println("[XenonRecomp] Recompile() done");
     }
     else
     {

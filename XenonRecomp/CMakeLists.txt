@@ -27,3 +27,4 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 target_compile_definitions(XenonRecomp PRIVATE _CRT_SECURE_NO_WARNINGS)
+target_compile_definitions(XenonRecomp PRIVATE XENON_RECOMP_TOOL=1)

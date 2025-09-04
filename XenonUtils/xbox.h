@@ -14,6 +14,12 @@
 #define GUEST_HANDLE(HANDLE) ((HANDLE) | 0x80000000)
 #define HOST_HANDLE(HANDLE) ((HANDLE) & ~0x80000000)
 
+// Forward declarations for guest/host memory helpers must appear
+// before any templates that reference them (for Clang's lookup rules).
+extern "C" void*    MmGetHostAddress(uint32_t ptr);
+extern "C" uint8_t* MmGetGuestBase();
+extern "C" uint64_t MmGetGuestLimit();
+
 // Return true to free the associated memory
 typedef bool(*TypeDestructor_t)(void*);
 
@@ -68,7 +74,21 @@ struct be
 
     T get() const
     {
+#if defined(XENON_RECOMP_TOOL)
+        // Tool builds operate on host buffers, not mapped guest memory.
+        // Do not attempt guest memory bounds validation here.
         return byteswap(value);
+#else
+        // Validate this wrapper resides in translated guest memory before use.
+        auto* base = MmGetGuestBase();
+        const uint64_t limit = MmGetGuestLimit();
+        const uint8_t* p = reinterpret_cast<const uint8_t*>(this);
+        if (!base || p < base || (p + sizeof(*this)) > (base + limit))
+        {
+            return T{};
+        }
+        return byteswap(value);
+#endif
     }
 
     be& operator| (T value)
@@ -95,7 +115,7 @@ struct be
     }
 };
 
-extern "C" void* MmGetHostAddress(uint32_t ptr);
+// (prototypes moved above)
 template<typename T>
 struct xpointer
 {
@@ -111,13 +131,23 @@ struct xpointer
 
     T* get() const
     {
-        if (!ptr.value)
+        const uint32_t off = ptr.get();
+        if (off == 0)
         {
             return nullptr;
         }
 
-        return reinterpret_cast<T*>(MmGetHostAddress(ptr));
+        // Validate that the guest offset points into the mapped guest memory
+        // and not into the initial guard region.
+        if (off < 4096 || static_cast<uint64_t>(off) >= MmGetGuestLimit())
+        {
+            return nullptr;
+        }
+
+        return reinterpret_cast<T*>(MmGetHostAddress(off));
     }
+
+    // no extra helpers
 
     operator T* () const
     {

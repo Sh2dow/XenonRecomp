@@ -89,12 +89,37 @@ bool Recompiler::LoadConfig(const std::string_view& configFilePath)
         }
     }
 
+    // Validate input buffer before parsing; prevent OOB reads on empty files
+    if (file.size() < 4)
+    {
+        fmt::println("ERROR: Input file too small or missing: {}{}", config.directoryPath, config.filePath);
+        return false;
+    }
+
+    // Basic magic check (ELF or XEX2) to surface clearer errors when the wrong file is supplied
+    const bool isElf = (file[0] == 0x7F && file[1] == 'E' && file[2] == 'L' && file[3] == 'F');
+    const bool isXex2 = (file[0] == 'X' && file[1] == 'E' && file[2] == 'X' && file[3] == '2');
+    if (!isElf && !isXex2)
+    {
+        fmt::println("ERROR: Unsupported input (expected XEX2/ELF). First 4 bytes: {:02X} {:02X} {:02X} {:02X}",
+            (unsigned)file[0], (unsigned)file[1], (unsigned)file[2], (unsigned)file[3]);
+        fmt::println("       Path: {}{}", config.directoryPath, config.filePath);
+        return false;
+    }
+
     image = Image::ParseImage(file.data(), file.size());
+    if (image.size == 0 || image.sections.empty())
+    {
+        fmt::println("ERROR: Failed to parse image (no sections/size=0). Path: {}{}", config.directoryPath, config.filePath);
+        return false;
+    }
+    fmt::println("[XenonRecomp] Image parsed: size={} base=0x{:X} sections={}", image.size, image.base, image.sections.size());
     return true;
 }
 
 void Recompiler::Analyse()
 {
+    fmt::println("[XenonRecomp] Analyse: functions(listed)={}, symbols(pre)={}", config.functions.size(), image.symbols.size());
     for (size_t i = 14; i < 128; i++)
     {
         if (i < 32)
