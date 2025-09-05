@@ -18,6 +18,7 @@ bool Recompiler::LoadConfig(const std::string_view& configFilePath)
     if (!config.patchedFilePath.empty())
         file = LoadFile((config.directoryPath + config.patchedFilePath).c_str());
 
+    bool loadedPatched = !file.empty();
     if (file.empty())
     {
         file = LoadFile((config.directoryPath + config.filePath).c_str());
@@ -94,6 +95,25 @@ bool Recompiler::LoadConfig(const std::string_view& configFilePath)
     {
         fmt::println("ERROR: Input file too small or missing: {}{}", config.directoryPath, config.filePath);
         return false;
+    }
+
+    // If no patch file is provided, ensure a patched_file_path exists by copying the input.
+    if (!loadedPatched && !file.empty() && !config.patchedFilePath.empty())
+    {
+        const std::string outPath = config.directoryPath + config.patchedFilePath;
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::path(outPath).parent_path(), ec);
+        std::ofstream stream(outPath, std::ios::binary);
+        if (stream.good())
+        {
+            stream.write(reinterpret_cast<const char*>(file.data()), file.size());
+            stream.close();
+            fmt::println("[XenonRecomp] Wrote patched (copy): {} ({} bytes)", outPath, file.size());
+        }
+        else
+        {
+            fmt::println("ERROR: Failed to write patched file: {}", outPath);
+        }
     }
 
     // Basic magic check (ELF or XEX2) to surface clearer errors when the wrong file is supplied
@@ -277,6 +297,11 @@ void Recompiler::Analyse()
     }
 
     std::sort(functions.begin(), functions.end(), [](auto& lhs, auto& rhs) { return lhs.base < rhs.base; });
+    // Deduplicate by base address to avoid emitting the same function twice when
+    // discovered via multiple paths (e.g., config list + .pdata + scan).
+    functions.erase(std::unique(functions.begin(), functions.end(), [](const Function& a, const Function& b){
+        return a.base == b.base;
+    }), functions.end());
 }
 
 bool Recompiler::Recompile(

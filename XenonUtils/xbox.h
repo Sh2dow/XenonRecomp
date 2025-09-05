@@ -76,17 +76,19 @@ struct be
     {
 #if defined(XENON_RECOMP_TOOL)
         // Tool builds operate on host buffers, not mapped guest memory.
-        // Do not attempt guest memory bounds validation here.
         return byteswap(value);
 #else
-        // Validate this wrapper resides in translated guest memory before use.
+        // If guest memory isn’t initialized yet, allow host-side structures to work.
         auto* base = MmGetGuestBase();
+        if (!base)
+            return byteswap(value);
+
         const uint64_t limit = MmGetGuestLimit();
         const uint8_t* p = reinterpret_cast<const uint8_t*>(this);
-        if (!base || p < base || (p + sizeof(*this)) > (base + limit))
-        {
-            return T{};
-        }
+        // If the object isn’t in the guest range, treat it as a host-side struct.
+        if (p < base || (p + sizeof(*this)) > (base + limit))
+            return byteswap(value);
+
         return byteswap(value);
 #endif
     }
