@@ -112,13 +112,23 @@
 
 #ifndef PPC_CALL_INDIRECT_FUNC
 #define PPC_CALL_INDIRECT_FUNC(x) do { \
-    PPCFunc* _pf = PPC_LOOKUP_FUNC(base, x); \
-    if (_pf) { _pf(ctx, base); } \
+    uint32_t _target = (x); \
+    if (_target == 0 || _target < 0x82000000 || _target >= 0x82CD0000) { \
+        fprintf(stderr, "[NULL-CALL] lr=%08X\n", ctx.lr.u32); \
+        fflush(stderr); \
+        ctx.r3.u32 = 0; \
+        break; \
+    } \
+    PPCFunc* _pf = PPC_LOOKUP_FUNC(base, _target); \
+    if (_pf) { \
+        _pf(ctx, base); \
+    } \
     else { \
         ctx.r3.u32 = 0; \
         const char* _trace = std::getenv("MW05_TRACE_INDIRECT"); \
         if (_trace && _trace[0] && !(_trace[0]=='0' && _trace[1]=='\0')) { \
-            fprintf(stderr, "[ppc][indirect-miss] target=0x%08X\n", (unsigned)(x)); \
+            fprintf(stderr, "[ppc][indirect-miss] target=0x%08X\n", _target); \
+            fflush(stderr); \
         } \
     } \
 } while(0)
