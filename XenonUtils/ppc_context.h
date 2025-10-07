@@ -114,7 +114,7 @@
 #define PPC_CALL_INDIRECT_FUNC(x) do { \
     uint32_t _target = (x); \
     if (_target == 0 || _target < 0x82000000 || _target >= 0x82CD0000) { \
-        fprintf(stderr, "[NULL-CALL] lr=%08X\n", ctx.lr.u32); \
+        fprintf(stderr, "[NULL-CALL] lr=%08X\n", static_cast<uint32_t>(ctx.lr)); \
         fflush(stderr); \
         ctx.r3.u32 = 0; \
         break; \
