@@ -911,13 +911,15 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_DIVW:
-        println("\t{}.s32 = {}.s32 / {}.s32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // 32-bit signed division with sign-extension to 64-bit (PPC64 behavior)
+        println("\t{}.s64 = int64_t({}.s32) / int64_t({}.s32);", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_DIVWU:
-        println("\t{}.u32 = {}.u32 / {}.u32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // 32-bit unsigned division with zero-extension to 64-bit (PPC64 behavior)
+        println("\t{}.u64 = uint64_t({}.u32) / uint64_t({}.u32);", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
