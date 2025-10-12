@@ -102,6 +102,23 @@
 #define PPC_MM_STORE_U64(x, y)  PPC_STORE_U64(x, y)
 #endif
 
+// Custom trap macro for debugging - logs register value before trap
+#ifndef PPC_TRAP_LLEI
+#define PPC_TRAP_LLEI(reg_val, reg_name) do { \
+    uint32_t _val_u32 = (uint32_t)(reg_val); \
+    fprintf(stderr, "[PPC_TRAP_LLEI] Checking: %s <= 0, u32=0x%08X (%u)\n", reg_name, _val_u32, _val_u32); \
+    fflush(stderr); \
+    if (_val_u32 <= 0) { \
+        fprintf(stderr, "[PPC_TRAP_LLEI] !!! TRAP TRIGGERED !!! %s=0x%08X is <= 0\n", reg_name, _val_u32); \
+        fflush(stderr); \
+        __builtin_debugtrap(); \
+    } else { \
+        fprintf(stderr, "[PPC_TRAP_LLEI] Trap NOT triggered, %s=0x%08X is > 0\n", reg_name, _val_u32); \
+        fflush(stderr); \
+    } \
+} while(0)
+#endif
+
 #ifndef PPC_CALL_FUNC
 #define PPC_CALL_FUNC(x) x(ctx, base)
 #endif

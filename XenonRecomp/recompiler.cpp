@@ -2029,7 +2029,7 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_TWLLEI:
-        println("\tif ({}.u32 <= {}) __builtin_debugtrap();", r(insn.operands[0]), insn.operands[1]);
+        println("\tPPC_TRAP_LLEI({}.u32, \"r{}\");", r(insn.operands[0]), insn.operands[0]);
         break;
 
     case PPC_INST_TWLLT:
