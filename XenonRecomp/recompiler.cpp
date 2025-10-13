@@ -1219,7 +1219,14 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_LIS:
-        println("\t{}.s64 = {};", r(insn.operands[0]), int32_t(insn.operands[1] << 16));
+        // Load Immediate Shifted: load signed 16-bit immediate into upper 16 bits
+        // rD = sign_extend_32((int16_t)imm) << 16
+        // Example: lis r11, -32113 (0x828F) -> 0x828F0000 (signed: -2106351616)
+        {
+            uint16_t imm16 = static_cast<uint16_t>(insn.operands[1] & 0xFFFF);
+            int32_t upper = static_cast<int32_t>(static_cast<int16_t>(imm16)) * 65536; // avoid UB of left-shifting negatives
+            println("\t{}.s64 = {}; // LIS_FIX_MARK", r(insn.operands[0]), upper);
+        }
         break;
 
     case PPC_INST_LVEBX:
