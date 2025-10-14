@@ -1235,10 +1235,11 @@ bool Recompiler::Recompile(
         // Load Immediate Shifted: load signed 16-bit immediate into upper 16 bits
         // rD = sign_extend_32((int16_t)imm) << 16
         // Example: lis r11, -32113 (0x828F) -> 0x828F0000 (signed: -2106351616)
+        // CRITICAL: Use .u32 to avoid sign-extension to 64 bits!
         {
             uint16_t imm16 = static_cast<uint16_t>(insn.operands[1] & 0xFFFF);
             int32_t upper = static_cast<int32_t>(static_cast<int16_t>(imm16)) * 65536; // avoid UB of left-shifting negatives
-            println("\t{}.s64 = {}; // LIS_FIX_MARK", r(insn.operands[0]), upper);
+            println("\t{}.u32 = {}u; // LIS_FIX_MARK", r(insn.operands[0]), static_cast<uint32_t>(upper));
         }
         break;
 
