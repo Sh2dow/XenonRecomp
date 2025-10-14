@@ -576,84 +576,96 @@ bool Recompiler::Recompile(
     switch (id)
     {
     case PPC_INST_ADD:
-        println("\t{}.u64 = {}.u64 + {}.u64;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC add operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 + {}.u32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_ADDC:
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC addc operates on 32-bit values)
         println("\t{}.ca = ({}.u32 + {}.u32 < {}.u32);", xer(), r(insn.operands[1]), r(insn.operands[2]), r(insn.operands[1]));
-        println("\t{}.u64 = {}.u64 + {}.u64;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        println("\t{}.u32 = {}.u32 + {}.u32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_ADDE:
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC adde operates on 32-bit values)
         println("\t{}.u8 = ({}.u32 + {}.u32 < {}.u32) | ({}.u32 + {}.u32 + {}.ca < {}.ca);", temp(), r(insn.operands[1]), r(insn.operands[2]), r(insn.operands[1]), r(insn.operands[1]), r(insn.operands[2]), xer(), xer());
-        println("\t{}.u64 = {}.u64 + {}.u64 + {}.ca;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]), xer());
+        println("\t{}.u32 = {}.u32 + {}.u32 + {}.ca;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]), xer());
         println("\t{}.ca = {}.u8;", xer(), temp());
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_ADDI:
-        print("\t{}.s64 = ", r(insn.operands[0]));
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC addi operates on 32-bit values)
+        print("\t{}.u32 = ", r(insn.operands[0]));
         if (insn.operands[1] != 0)
-            print("{}.s64 + ", r(insn.operands[1]));
+            print("{}.u32 + ", r(insn.operands[1]));
         println("{};", int32_t(insn.operands[2]));
         break;
 
     case PPC_INST_ADDIC:
         println("\t{}.ca = {}.u32 > {};", xer(), r(insn.operands[1]), ~insn.operands[2]);
-        println("\t{}.s64 = {}.s64 + {};", r(insn.operands[0]), r(insn.operands[1]), int32_t(insn.operands[2]));
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC addic operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 + {};", r(insn.operands[0]), r(insn.operands[1]), int32_t(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_ADDIS:
-        print("\t{}.s64 = ", r(insn.operands[0]));
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC addis operates on 32-bit values)
+        print("\t{}.u32 = ", r(insn.operands[0]));
         if (insn.operands[1] != 0)
-            print("{}.s64 + ", r(insn.operands[1]));
+            print("{}.u32 + ", r(insn.operands[1]));
         println("{};", static_cast<int32_t>(insn.operands[2] << 16));
         break;
 
     case PPC_INST_ADDME:
-        println("\t{}.u64 = {}.u64 + {}.ca - 1;", temp(), r(insn.operands[1]), xer());
-        println("\t{}.ca = ({}.u64 > {}.u64) || ({}.u64 == {}.u64 && {}.ca);", xer(), 
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC addme operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 + {}.ca - 1;", temp(), r(insn.operands[1]), xer());
+        println("\t{}.ca = ({}.u32 > {}.u32) || ({}.u32 == {}.u32 && {}.ca);", xer(),
             r(insn.operands[1]), temp(), r(insn.operands[1]), temp(), xer());
-        println("\t{}.u64 = {}.u64;", r(insn.operands[0]), temp());
+        println("\t{}.u32 = {}.u32;", r(insn.operands[0]), temp());
         if (strchr(insn.opcode->name, '.'))
-            println("\t{}.compare<int32_t>({}.s32, 0, {});", 
+            println("\t{}.compare<int32_t>({}.s32, 0, {});",
                 cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_ADDZE:
-        println("\t{}.s64 = {}.s64 + {}.ca;", temp(), r(insn.operands[1]), xer());
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC addze operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 + {}.ca;", temp(), r(insn.operands[1]), xer());
         println("\t{}.ca = {}.u32 < {}.u32;", xer(), temp(), r(insn.operands[1]));
-        println("\t{}.s64 = {}.s64;", r(insn.operands[0]), temp());
+        println("\t{}.u32 = {}.u32;", r(insn.operands[0]), temp());
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_AND:
-        println("\t{}.u64 = {}.u64 & {}.u64;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use u32 for 32-bit logical operations (PowerPC and operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 & {}.u32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_ANDC:
-        println("\t{}.u64 = {}.u64 & ~{}.u64;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use u32 for 32-bit logical operations (PowerPC andc operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 & ~{}.u32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_ANDI:
-        println("\t{}.u64 = {}.u64 & {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2]);
+        // FIX: Use u32 for 32-bit logical operations (PowerPC andi operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 & {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2]);
         println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_ANDIS:
-        println("\t{}.u64 = {}.u64 & {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2] << 16);
+        // FIX: Use u32 for 32-bit logical operations (PowerPC andis operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 & {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2] << 16);
         println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
@@ -930,7 +942,8 @@ bool Recompiler::Recompile(
 
     case PPC_INST_EQV:
         // rA = ~(rS XOR rB)
-        println("\t{}.u64 = ~({}.u64 ^ {}.u64);", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use u32 for 32-bit logical operations (PowerPC eqv operates on 32-bit values)
+        println("\t{}.u32 = ~({}.u32 ^ {}.u32);", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
@@ -1343,18 +1356,21 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_MFLR:
+        // FIX: Use u32 for 32-bit register move (PowerPC mflr operates on 32-bit values)
         if (!config.skipLr)
-            println("\t{}.u64 = ctx.lr;", r(insn.operands[0]));
+            println("\t{}.u32 = ctx.lr;", r(insn.operands[0]));
         break;
 
     case PPC_INST_MFMSR:
+        // FIX: Use u32 for 32-bit register move (PowerPC mfmsr operates on 32-bit values)
         if (!config.skipMsr)
-            println("\t{}.u64 = ctx.msr;", r(insn.operands[0]));
+            println("\t{}.u32 = ctx.msr;", r(insn.operands[0]));
         break;
 
     case PPC_INST_MFOCRF:
+        // FIX: Use u32 for 32-bit register move (PowerPC mfocrf operates on 32-bit values)
         // TODO: don't hardcode to cr6
-        println("\t{}.u64 = ({}.lt << 7) | ({}.gt << 6) | ({}.eq << 5) | ({}.so << 4);", r(insn.operands[0]), cr(6), cr(6), cr(6), cr(6));
+        println("\t{}.u32 = ({}.lt << 7) | ({}.gt << 6) | ({}.eq << 5) | ({}.so << 4);", r(insn.operands[0]), cr(6), cr(6), cr(6), cr(6));
         break;
 
     case PPC_INST_MFTB:
@@ -1362,7 +1378,8 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_MR:
-        println("\t{}.u64 = {}.u64;", r(insn.operands[0]), r(insn.operands[1]));
+        // FIX: Use u32 for 32-bit register move (PowerPC mr operates on 32-bit values)
+        println("\t{}.u32 = {}.u32;", r(insn.operands[0]), r(insn.operands[1]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
@@ -1376,7 +1393,8 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_MTCTR:
-        println("\t{}.u64 = {}.u64;", ctr(), r(insn.operands[0]));
+        // FIX: Use u32 for 32-bit register move (PowerPC mtctr operates on 32-bit values)
+        println("\t{}.u32 = {}.u32;", ctr(), r(insn.operands[0]));
         break;
 
     case PPC_INST_MTFSF:
@@ -1384,8 +1402,9 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_MTLR:
+        // FIX: Use u32 for 32-bit register move (PowerPC mtlr operates on 32-bit values)
         if (!config.skipLr)
-            println("\tctx.lr = {}.u64;", r(insn.operands[0]));
+            println("\tctx.lr = {}.u32;", r(insn.operands[0]));
         break;
 
     case PPC_INST_MTMSRD:
@@ -1394,9 +1413,10 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_MTXER:
-        println("\t{}.so = ({}.u64 & 0x80000000) != 0;", xer(), r(insn.operands[0]));
-        println("\t{}.ov = ({}.u64 & 0x40000000) != 0;", xer(), r(insn.operands[0]));
-        println("\t{}.ca = ({}.u64 & 0x20000000) != 0;", xer(), r(insn.operands[0]));
+        // FIX: Use u32 for 32-bit register move (PowerPC mtxer operates on 32-bit values)
+        println("\t{}.so = ({}.u32 & 0x80000000) != 0;", xer(), r(insn.operands[0]));
+        println("\t{}.ov = ({}.u32 & 0x40000000) != 0;", xer(), r(insn.operands[0]));
+        println("\t{}.ca = ({}.u32 & 0x20000000) != 0;", xer(), r(insn.operands[0]));
         break;
 
     case PPC_INST_MULHW:
@@ -1414,7 +1434,8 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_MULLI:
-        println("\t{}.s64 = {}.s64 * {};", r(insn.operands[0]), r(insn.operands[1]), int32_t(insn.operands[2]));
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC mulli operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 * {};", r(insn.operands[0]), r(insn.operands[1]), int32_t(insn.operands[2]));
         break;
 
     case PPC_INST_MULLW:
@@ -1440,11 +1461,13 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_NAND:
-        println("\t{}.u64 = ~({}.u64 & {}.u64);", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use u32 for 32-bit logical operations (PowerPC nand operates on 32-bit values)
+        println("\t{}.u32 = ~({}.u32 & {}.u32);", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         break;
 
     case PPC_INST_NEG:
-        println("\t{}.s64 = -{}.s64;", r(insn.operands[0]), r(insn.operands[1]));
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC neg operates on 32-bit values)
+        println("\t{}.u32 = -{}.u32;", r(insn.operands[0]), r(insn.operands[1]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
@@ -1454,31 +1477,37 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_NOR:
-        println("\t{}.u64 = ~({}.u64 | {}.u64);", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use u32 for 32-bit logical operations (PowerPC nor operates on 32-bit values)
+        println("\t{}.u32 = ~({}.u32 | {}.u32);", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         break;
 
     case PPC_INST_NOT:
-        println("\t{}.u64 = ~{}.u64;", r(insn.operands[0]), r(insn.operands[1]));
+        // FIX: Use u32 for 32-bit logical operations (PowerPC not operates on 32-bit values)
+        println("\t{}.u32 = ~{}.u32;", r(insn.operands[0]), r(insn.operands[1]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_OR:
-        println("\t{}.u64 = {}.u64 | {}.u64;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use u32 for 32-bit logical operations (PowerPC or operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 | {}.u32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_ORC:
-        println("\t{}.u64 = {}.u64 | ~{}.u64;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use u32 for 32-bit logical operations (PowerPC orc operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 | ~{}.u32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         break;
 
     case PPC_INST_ORI:
-        println("\t{}.u64 = {}.u64 | {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2]);
+        // FIX: Use u32 for 32-bit logical operations (PowerPC ori operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 | {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2]);
         break;
 
     case PPC_INST_ORIS:
-        println("\t{}.u64 = {}.u64 | {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2] << 16);
+        // FIX: Use u32 for 32-bit logical operations (PowerPC oris operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 | {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2] << 16);
         break;
 
     case PPC_INST_RLDICL:
@@ -1807,14 +1836,16 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_SUBF:
-        println("\t{}.s64 = {}.s64 - {}.s64;", r(insn.operands[0]), r(insn.operands[2]), r(insn.operands[1]));
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC subf operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 - {}.u32;", r(insn.operands[0]), r(insn.operands[2]), r(insn.operands[1]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_SUBFC:
         println("\t{}.ca = {}.u32 >= {}.u32;", xer(), r(insn.operands[2]), r(insn.operands[1]));
-        println("\t{}.s64 = {}.s64 - {}.s64;", r(insn.operands[0]), r(insn.operands[2]), r(insn.operands[1]));
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC subfc operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 - {}.u32;", r(insn.operands[0]), r(insn.operands[2]), r(insn.operands[1]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
@@ -1829,7 +1860,8 @@ bool Recompiler::Recompile(
 
     case PPC_INST_SUBFIC:
         println("\t{}.ca = {}.u32 <= {};", xer(), r(insn.operands[1]), insn.operands[2]);
-        println("\t{}.s64 = {} - {}.s64;", r(insn.operands[0]), int32_t(insn.operands[2]), r(insn.operands[1]));
+        // FIX: Use u32 for 32-bit arithmetic (PowerPC subfic operates on 32-bit values)
+        println("\t{}.u32 = {} - {}.u32;", r(insn.operands[0]), int32_t(insn.operands[2]), r(insn.operands[1]));
         break;
 
     case PPC_INST_SUBFME:
@@ -2750,17 +2782,20 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_XOR:
-        println("\t{}.u64 = {}.u64 ^ {}.u64;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use u32 for 32-bit logical operations (PowerPC xor operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 ^ {}.u32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_XORI:
-        println("\t{}.u64 = {}.u64 ^ {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2]);
+        // FIX: Use u32 for 32-bit logical operations (PowerPC xori operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 ^ {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2]);
         break;
 
     case PPC_INST_XORIS:
-        println("\t{}.u64 = {}.u64 ^ {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2] << 16);
+        // FIX: Use u32 for 32-bit logical operations (PowerPC xoris operates on 32-bit values)
+        println("\t{}.u32 = {}.u32 ^ {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2] << 16);
         break;
 
     default:
