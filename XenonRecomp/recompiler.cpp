@@ -688,7 +688,7 @@ bool Recompiler::Recompile(
     case PPC_INST_BCTR:
         if (switchTable != config.switchTables.end())
         {
-            println("\tswitch ({}.u64) {{", r(switchTable->second.r));
+            println("\tswitch ({}.u32) {{", r(switchTable->second.r));
 
             for (size_t i = 0; i < switchTable->second.labels.size(); i++)
             {
@@ -923,15 +923,28 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_DIVW:
-        // 32-bit signed division with sign-extension to 64-bit (PPC64 behavior)
-        println("\t{}.s64 = int64_t({}.s32) / int64_t({}.s32);", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // 32-bit signed division
+        // FIX: Use .s32 for 32-bit division result (PowerPC divw operates on 32-bit values)
+        // The upper 32 bits are undefined after divw, so we must use .s32 to avoid propagating garbage
+        // DEBUG: Add logging for division at 0x8281361C
+        if (base == 0x8281361C) {
+            println("\tfprintf(stderr, \"[DIVW-DEBUG] BEFORE: r10.u32=0x%%08X r10.s32=%%d r30.u32=0x%%08X r30.s32=%%d\\\\n\", {}.u32, {}.s32, {}.u32, {}.s32); fflush(stderr);",
+                r(insn.operands[1]), r(insn.operands[1]), r(insn.operands[2]), r(insn.operands[2]));
+        }
+        println("\t{}.s32 = {}.s32 / {}.s32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        if (base == 0x8281361C) {
+            println("\tfprintf(stderr, \"[DIVW-DEBUG] AFTER: r9.u32=0x%%08X r9.s32=%%d\\\\n\", {}.u32, {}.s32); fflush(stderr);",
+                r(insn.operands[0]), r(insn.operands[0]));
+        }
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_DIVWU:
-        // 32-bit unsigned division with zero-extension to 64-bit (PPC64 behavior)
-        println("\t{}.u64 = uint64_t({}.u32) / uint64_t({}.u32);", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // 32-bit unsigned division
+        // FIX: Use .u32 for 32-bit division result (PowerPC divwu operates on 32-bit values)
+        // The upper 32 bits are undefined after divwu, so we must use .u32 to avoid propagating garbage
+        println("\t{}.u32 = {}.u32 / {}.u32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
@@ -1228,7 +1241,7 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_LI:
-        println("\t{}.s64 = {};", r(insn.operands[0]), int32_t(insn.operands[1]));
+        println("\t{}.u32 = {}u;", r(insn.operands[0]), static_cast<uint32_t>(int32_t(insn.operands[1])));
         break;
 
     case PPC_INST_LIS:
@@ -1239,6 +1252,13 @@ bool Recompiler::Recompile(
         {
             uint16_t imm16 = static_cast<uint16_t>(insn.operands[1] & 0xFFFF);
             int32_t upper = static_cast<int32_t>(static_cast<int16_t>(imm16)) * 65536; // avoid UB of left-shifting negatives
+
+            // DEBUG: Log instruction details for address 0x828135B8
+            if (base == 0x828135B8) {
+                fmt::println("[LIS-DEBUG] addr=0x{:X} insn=0x{:08X} operand[1]=0x{:08X} imm16=0x{:04X} upper=0x{:08X}",
+                             base, insn.instruction, insn.operands[1], imm16, static_cast<uint32_t>(upper));
+            }
+
             println("\t{}.u32 = {}u; // LIS_FIX_MARK", r(insn.operands[0]), static_cast<uint32_t>(upper));
         }
         break;
@@ -1421,11 +1441,15 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_MULHW:
-        println("\t{}.s64 = (int64_t({}.s32) * int64_t({}.s32)) >> 32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use .s32 for 32-bit result (PowerPC mulhw returns high 32 bits of 64-bit product)
+        // The result is a 32-bit value, upper 32 bits are UNDEFINED
+        println("\t{}.s32 = (int64_t({}.s32) * int64_t({}.s32)) >> 32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         break;
 
     case PPC_INST_MULHWU:
-        println("\t{}.u64 = (uint64_t({}.u32) * uint64_t({}.u32)) >> 32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use .u32 for 32-bit result (PowerPC mulhwu returns high 32 bits of 64-bit product)
+        // The result is a 32-bit value, upper 32 bits are UNDEFINED
+        println("\t{}.u32 = (uint64_t({}.u32) * uint64_t({}.u32)) >> 32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
@@ -1528,20 +1552,25 @@ bool Recompiler::Recompile(
 
     case PPC_INST_RLWIMI:
     {
+        // FIX: Use .u32 for 32-bit result (PowerPC rlwimi is a 32-bit rotate operation)
+        // The result is a 32-bit value, upper 32 bits are UNDEFINED
         const uint64_t mask = ComputeMask(insn.operands[3] + 32, insn.operands[4] + 32);
-        println("\t{}.u64 = (__builtin_rotateleft32({}.u32, {}) & 0x{:X}) | ({}.u64 & 0x{:X});", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2], mask, r(insn.operands[0]), ~mask);
+        println("\t{}.u32 = (__builtin_rotateleft32({}.u32, {}) & 0x{:X}) | ({}.u32 & 0x{:X});", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2], mask, r(insn.operands[0]), ~mask);
         break;
     }
 
     case PPC_INST_RLWINM:
-        println("\t{}.u64 = __builtin_rotateleft64({}.u32 | ({}.u64 << 32), {}) & 0x{:X};", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[1]), insn.operands[2], ComputeMask(insn.operands[3] + 32, insn.operands[4] + 32));
+        // CRITICAL: Use .u32 for both operands to avoid reading garbage from upper 32 bits!
+        // The formula duplicates the lower 32 bits: (uint64_t)r.u32 | ((uint64_t)r.u32 << 32)
+        println("\t{}.u64 = __builtin_rotateleft64({}.u32 | ((uint64_t){}.u32 << 32), {}) & 0x{:X};", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[1]), insn.operands[2], ComputeMask(insn.operands[3] + 32, insn.operands[4] + 32));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_RLWNM:
-        println("\t{}.u64 = __builtin_rotateleft64({}.u32 | ({}.u64 << 32), {}.u8 & 0x1F) & 0x{:X};", 
-            r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[1]), 
+        // CRITICAL: Use .u32 for both operands to avoid reading garbage from upper 32 bits!
+        println("\t{}.u64 = __builtin_rotateleft64({}.u32 | ((uint64_t){}.u32 << 32), {}.u8 & 0x1F) & 0x{:X};",
+            r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[1]),
             r(insn.operands[2]), ComputeMask(insn.operands[3] + 32, insn.operands[4] + 32));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
@@ -1566,7 +1595,9 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_SLW:
-        println("\t{}.u64 = {}.u8 & 0x20 ? 0 : ({}.u32 << ({}.u8 & 0x3F));", r(insn.operands[0]), r(insn.operands[2]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use .u32 for 32-bit result (PowerPC slw is a 32-bit shift operation)
+        // The result is a 32-bit value, upper 32 bits are UNDEFINED
+        println("\t{}.u32 = {}.u8 & 0x20 ? 0 : ({}.u32 << ({}.u8 & 0x3F));", r(insn.operands[0]), r(insn.operands[2]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
@@ -1592,24 +1623,28 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_SRAW:
+        // FIX: Use .s32 for 32-bit result (PowerPC sraw is a 32-bit shift operation)
+        // The result is a 32-bit value, upper 32 bits are UNDEFINED
         println("\t{}.u32 = {}.u32 & 0x3F;", temp(), r(insn.operands[2]));
         println("\tif ({}.u32 > 0x1F) {}.u32 = 0x1F;", temp(), temp());
         println("\t{}.ca = ({}.s32 < 0) & ((({}.s32 >> {}.u32) << {}.u32) != {}.s32);", xer(), r(insn.operands[1]), r(insn.operands[1]), temp(), temp(), r(insn.operands[1]));
-        println("\t{}.s64 = {}.s32 >> {}.u32;", r(insn.operands[0]), r(insn.operands[1]), temp());
+        println("\t{}.s32 = {}.s32 >> {}.u32;", r(insn.operands[0]), r(insn.operands[1]), temp());
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_SRAWI:
+        // FIX: Use .s32 for 32-bit result (PowerPC srawi is a 32-bit shift operation)
+        // The result is a 32-bit value, upper 32 bits are UNDEFINED
         if (insn.operands[2] != 0)
         {
             println("\t{}.ca = ({}.s32 < 0) & (({}.u32 & 0x{:X}) != 0);", xer(), r(insn.operands[1]), r(insn.operands[1]), ComputeMask(64 - insn.operands[2], 63));
-            println("\t{}.s64 = {}.s32 >> {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2]);
+            println("\t{}.s32 = {}.s32 >> {};", r(insn.operands[0]), r(insn.operands[1]), insn.operands[2]);
         }
         else
         {
             println("\t{}.ca = 0;", xer());
-            println("\t{}.s64 = {}.s32;", r(insn.operands[0]), r(insn.operands[1]));
+            println("\t{}.s32 = {}.s32;", r(insn.operands[0]), r(insn.operands[1]));
         }
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
@@ -1620,7 +1655,9 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_SRW:
-        println("\t{}.u64 = {}.u8 & 0x20 ? 0 : ({}.u32 >> ({}.u8 & 0x3F));", r(insn.operands[0]), r(insn.operands[2]), r(insn.operands[1]), r(insn.operands[2]));
+        // FIX: Use .u32 for 32-bit result (PowerPC srw is a 32-bit shift operation)
+        // The result is a 32-bit value, upper 32 bits are UNDEFINED
+        println("\t{}.u32 = {}.u8 & 0x20 ? 0 : ({}.u32 >> ({}.u8 & 0x3F));", r(insn.operands[0]), r(insn.operands[2]), r(insn.operands[1]), r(insn.operands[2]));
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
@@ -3067,7 +3104,7 @@ void Recompiler::Recompile(const std::filesystem::path& headerFilePath)
 
         println("#define PPC_IMAGE_BASE 0x{:X}ull", image.base);
         println("#define PPC_IMAGE_SIZE 0x{:X}ull", image.size);
-        
+
         // Extract the address of the minimum code segment to store the function table at.
         size_t codeMin = ~0;
         size_t codeMax = 0;
@@ -3085,7 +3122,19 @@ void Recompiler::Recompile(const std::filesystem::path& headerFilePath)
         }
 
         println("#define PPC_CODE_BASE 0x{:X}ull", codeMin);
-        println("#define PPC_CODE_SIZE 0x{:X}ull", codeMax - codeMin);
+
+        // CRITICAL FIX: Extend PPC_CODE_SIZE to cover a larger range for host callbacks
+        // Host callbacks may be registered at addresses outside the XEX image (e.g., 0x82FF****)
+        // to avoid conflicts with game code. We need to ensure the function table covers these.
+        //
+        // Strategy: Use a fixed 16MB range from codeMin, which covers:
+        //   - All code sections in the XEX
+        //   - The full XEX image
+        //   - Additional space for host callbacks (up to ~0x830E0000)
+        //
+        // This costs ~16MB of function table (2M entries * 8 bytes), which is acceptable.
+        size_t extendedCodeSize = 0x1000000ull;  // 16 MB
+        println("#define PPC_CODE_SIZE 0x{:X}ull", extendedCodeSize);
 
         println("");
 

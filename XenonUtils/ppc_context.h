@@ -125,12 +125,22 @@
 
 #define PPC_MEMORY_SIZE 0x100000000ull
 
-#define PPC_LOOKUP_FUNC(x, y) *(PPCFunc**)(x + PPC_IMAGE_BASE + PPC_IMAGE_SIZE + (uint64_t(uint32_t(y) - PPC_CODE_BASE) * 2))
+// CRITICAL FIX: Function table lookup
+// The function table is stored AFTER the image data in HOST memory
+// Layout: [base + 0 ... base + PPC_MEMORY_SIZE) = guest memory
+//         [base + PPC_IMAGE_SIZE ... ) = function pointer table
+// Each entry is sizeof(PPCFunc*) = 8 bytes on x64
+// The old formula used PPC_IMAGE_BASE which caused overflow beyond 4GB
+// CRITICAL: Cast PPC_CODE_BASE to uint32_t to ensure subtraction happens in 32-bit space
+#define PPC_LOOKUP_FUNC(x, y) *(PPCFunc**)(x + PPC_IMAGE_SIZE + (uint64_t((uint32_t(y) - uint32_t(PPC_CODE_BASE))) * sizeof(PPCFunc*)))
 
 #ifndef PPC_CALL_INDIRECT_FUNC
 #define PPC_CALL_INDIRECT_FUNC(x) do { \
     uint32_t _target = (x); \
-    if (_target == 0 || _target < 0x82000000 || _target >= 0x82CD0000) { \
+    /* CRITICAL FIX: Extended range to cover host callbacks at 0x82FF**** */ \
+    /* Valid range is [PPC_CODE_BASE, PPC_CODE_BASE + PPC_CODE_SIZE) */ \
+    /* With PPC_CODE_BASE=0x820E0000 and PPC_CODE_SIZE=0x1000000, this is [0x820E0000, 0x830E0000) */ \
+    if (_target == 0 || _target < PPC_CODE_BASE || _target >= (PPC_CODE_BASE + PPC_CODE_SIZE)) { \
         static int _null_call_count = 0; \
         if (_null_call_count++ < 50) { \
             fprintf(stderr, "[NULL-CALL] lr=%08X target=%08X r3=%08X r31=%08X r4=%08X\n", \
