@@ -836,7 +836,9 @@ bool Recompiler::Recompile(
         break;
 
     case PPC_INST_CLRLWI:
-        println("\t{}.u64 = {}.u32 & 0x{:X};", r(insn.operands[0]), r(insn.operands[1]), (1ull << (32 - insn.operands[2])) - 1);
+        // FIX BUG #40: Use .u32 for 32-bit result (PowerPC clrlwi is a 32-bit clear operation)
+        // The result is a 32-bit value, upper 32 bits are UNDEFINED
+        println("\t{}.u32 = {}.u32 & 0x{:X};", r(insn.operands[0]), r(insn.operands[1]), (1ull << (32 - insn.operands[2])) - 1);
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
