@@ -1250,16 +1250,12 @@ bool Recompiler::Recompile(
         // Example: lis r11, -32113 (0x828F) -> 0x828F0000 (signed: -2106351616)
         // CRITICAL: Use .u32 to avoid sign-extension to 64 bits!
         {
-            uint16_t imm16 = static_cast<uint16_t>(insn.operands[1] & 0xFFFF);
-            int32_t upper = static_cast<int32_t>(static_cast<int16_t>(imm16)) * 65536; // avoid UB of left-shifting negatives
+            // Extract the 16-bit immediate value
+            uint32_t imm16 = insn.operands[1] & 0xFFFF;
+            // Shift left by 16 bits to place in upper half of 32-bit register
+            uint32_t upper = imm16 << 16;
 
-            // DEBUG: Log instruction details for address 0x828135B8
-            if (base == 0x828135B8) {
-                fmt::println("[LIS-DEBUG] addr=0x{:X} insn=0x{:08X} operand[1]=0x{:08X} imm16=0x{:04X} upper=0x{:08X}",
-                             base, insn.instruction, insn.operands[1], imm16, static_cast<uint32_t>(upper));
-            }
-
-            println("\t{}.u32 = {}u; // LIS_FIX_MARK", r(insn.operands[0]), static_cast<uint32_t>(upper));
+            println("\t{}.u32 = 0x{:08X}u; // LIS_FIX_MARK", r(insn.operands[0]), upper);
         }
         break;
 
