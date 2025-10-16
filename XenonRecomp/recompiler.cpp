@@ -1023,12 +1023,22 @@ bool Recompiler::Recompile(
 
     case PPC_INST_FDIV:
         printSetFlushMode(false);
-        println("\t{}.f64 = {}.f64 / {}.f64;", f(insn.operands[0]), f(insn.operands[1]), f(insn.operands[2]));
+        // RECOMPILER FIX: Add divide-by-zero check for floating-point division
+        println("\tif ({}.f64 == 0.0) {{", f(insn.operands[2]));
+        println("\t\t{}.f64 = ({}.f64 >= 0.0) ? INFINITY : -INFINITY;", f(insn.operands[0]), f(insn.operands[1]));
+        println("\t}} else {{");
+        println("\t\t{}.f64 = {}.f64 / {}.f64;", f(insn.operands[0]), f(insn.operands[1]), f(insn.operands[2]));
+        println("\t}}");
         break;
 
     case PPC_INST_FDIVS:
         printSetFlushMode(false);
-        println("\t{}.f64 = double(float({}.f64 / {}.f64));", f(insn.operands[0]), f(insn.operands[1]), f(insn.operands[2]));
+        // RECOMPILER FIX: Add divide-by-zero check for floating-point division (single precision)
+        println("\tif ({}.f64 == 0.0) {{", f(insn.operands[2]));
+        println("\t\t{}.f64 = double(({}.f64 >= 0.0) ? INFINITY : -INFINITY);", f(insn.operands[0]), f(insn.operands[1]));
+        println("\t}} else {{");
+        println("\t\t{}.f64 = double(float({}.f64 / {}.f64));", f(insn.operands[0]), f(insn.operands[1]), f(insn.operands[2]));
+        println("\t}}");
         break;
 
     case PPC_INST_FMADD:
