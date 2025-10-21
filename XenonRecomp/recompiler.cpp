@@ -928,16 +928,12 @@ bool Recompiler::Recompile(
         // 32-bit signed division
         // FIX: Use .s32 for 32-bit division result (PowerPC divw operates on 32-bit values)
         // The upper 32 bits are undefined after divw, so we must use .s32 to avoid propagating garbage
-        // DEBUG: Add logging for division at 0x8281361C
-        if (base == 0x8281361C) {
-            println("\tfprintf(stderr, \"[DIVW-DEBUG] BEFORE: r10.u32=0x%%08X r10.s32=%%d r30.u32=0x%%08X r30.s32=%%d\\\\n\", {}.u32, {}.s32, {}.u32, {}.s32); fflush(stderr);",
-                r(insn.operands[1]), r(insn.operands[1]), r(insn.operands[2]), r(insn.operands[2]));
-        }
-        println("\t{}.s32 = {}.s32 / {}.s32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
-        if (base == 0x8281361C) {
-            println("\tfprintf(stderr, \"[DIVW-DEBUG] AFTER: r9.u32=0x%%08X r9.s32=%%d\\\\n\", {}.u32, {}.s32); fflush(stderr);",
-                r(insn.operands[0]), r(insn.operands[0]));
-        }
+        // CRITICAL FIX: Add divide-by-zero check to prevent crashes
+        println("\tif ({}.s32 == 0) {{", r(insn.operands[2]));
+        println("\t\t{}.s32 = 0; // Divide by zero - return 0", r(insn.operands[0]));
+        println("\t}} else {{");
+        println("\t\t{}.s32 = {}.s32 / {}.s32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        println("\t}}");
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
@@ -946,13 +942,21 @@ bool Recompiler::Recompile(
         // 32-bit unsigned division
         // FIX: Use .u32 for 32-bit division result (PowerPC divwu operates on 32-bit values)
         // The upper 32 bits are undefined after divwu, so we must use .u32 to avoid propagating garbage
-        println("\t{}.u32 = {}.u32 / {}.u32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        // CRITICAL FIX: Add divide-by-zero check to prevent crashes
+        println("\tif ({}.u32 == 0) {{", r(insn.operands[2]));
+        println("\t\t{}.u32 = 0; // Divide by zero - return 0", r(insn.operands[0]));
+        println("\t}} else {{");
+        println("\t\t{}.u32 = {}.u32 / {}.u32;", r(insn.operands[0]), r(insn.operands[1]), r(insn.operands[2]));
+        println("\t}}");
         if (strchr(insn.opcode->name, '.'))
             println("\t{}.compare<int32_t>({}.s32, 0, {});", cr(0), r(insn.operands[0]), xer());
         break;
 
     case PPC_INST_EIEIO:
-        // no op
+        // EIEIO (Enforce In-Order Execution of I/O) is a memory barrier on PowerPC
+        // Generate a full memory fence to ensure proper memory ordering across threads
+        // This is critical for synchronization between threads (e.g., VBlank setting flags)
+        println("\tstd::atomic_thread_fence(std::memory_order_seq_cst);");
         break;
 
     case PPC_INST_EQV:
