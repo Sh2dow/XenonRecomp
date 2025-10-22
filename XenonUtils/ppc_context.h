@@ -126,13 +126,16 @@
 #define PPC_MEMORY_SIZE 0x100000000ull
 
 // CRITICAL FIX: Function table lookup
-// The function table is stored AFTER the image data in HOST memory
-// Layout: [base + 0 ... base + PPC_MEMORY_SIZE) = guest memory
-//         [base + PPC_IMAGE_SIZE ... ) = function pointer table
+// The function table is stored AFTER the guest memory in HOST memory
+// Layout: [base + 0 ... base + PPC_MEMORY_SIZE) = guest memory (4 GB)
+//         [base + PPC_MEMORY_SIZE ... ) = function pointer table
 // Each entry is sizeof(PPCFunc*) = 8 bytes on x64
-// The old formula used PPC_IMAGE_BASE which caused overflow beyond 4GB
+// CRITICAL: Store function table at base + PPC_MEMORY_SIZE to avoid overlap with user heap!
+// The user heap is at guest addresses 0x00100000-0x7FEA0000 (1 MB - 2046 MB).
+// If we store the function table at base + PPC_IMAGE_SIZE (12.75 MB), it overlaps with the heap!
+// This causes heap allocations to overwrite function table entries, leading to crashes.
 // CRITICAL: Cast PPC_CODE_BASE to uint32_t to ensure subtraction happens in 32-bit space
-#define PPC_LOOKUP_FUNC(x, y) *(PPCFunc**)(x + PPC_IMAGE_SIZE + (uint64_t((uint32_t(y) - uint32_t(PPC_CODE_BASE))) * sizeof(PPCFunc*)))
+#define PPC_LOOKUP_FUNC(x, y) *(PPCFunc**)(x + PPC_MEMORY_SIZE + (uint64_t((uint32_t(y) - uint32_t(PPC_CODE_BASE))) * sizeof(PPCFunc*)))
 
 #ifndef PPC_CALL_INDIRECT_FUNC
 #define PPC_CALL_INDIRECT_FUNC(x) do { \
