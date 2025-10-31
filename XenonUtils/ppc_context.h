@@ -135,11 +135,28 @@
 #ifndef PPC_CALL_INDIRECT_FUNC
 #define PPC_CALL_INDIRECT_FUNC(x) do { \
     uint32_t _target = (x); \
-    /* CRITICAL FIX: Extended range to cover host callbacks at 0x82FF**** */ \
+    /* CRITICAL FIX (2025-10-31): Detect corrupted function pointers */ \
+    /* 0xFFFFFFFF is a common corruption pattern (all bits set) */ \
+    /* Extended range to cover host callbacks at 0x82FF**** */ \
     /* Valid range is [PPC_CODE_BASE, PPC_CODE_BASE + PPC_CODE_SIZE) */ \
     /* With PPC_CODE_BASE=0x820E0000 and PPC_CODE_SIZE=0x1000000, this is [0x820E0000, 0x830E0000) */ \
-    if (_target == 0 || _target < PPC_CODE_BASE || _target >= (PPC_CODE_BASE + PPC_CODE_SIZE)) { \
+    if (_target == 0 || _target == 0xFFFFFFFF || _target < PPC_CODE_BASE || _target >= (PPC_CODE_BASE + PPC_CODE_SIZE)) { \
         static int _null_call_count = 0; \
+        static uint32_t _last_lr = 0; \
+        static int _consecutive_from_same_lr = 0; \
+        \
+        /* Detect infinite loops: same lr calling NULL repeatedly */ \
+        if (static_cast<uint32_t>(ctx.lr) == _last_lr) { \
+            _consecutive_from_same_lr++; \
+            /* After 10 consecutive NULL calls from same lr, stop logging to reduce spam */ \
+            if (_consecutive_from_same_lr > 10 && _null_call_count < 50) { \
+                _null_call_count = 50; /* Skip to end of logging */ \
+            } \
+        } else { \
+            _consecutive_from_same_lr = 0; \
+            _last_lr = static_cast<uint32_t>(ctx.lr); \
+        } \
+        \
         if (_null_call_count++ < 50) { \
             fprintf(stderr, "[NULL-CALL] lr=%08X target=%08X r3=%08X r31=%08X r4=%08X\n", \
                     static_cast<uint32_t>(ctx.lr), _target, ctx.r3.u32, ctx.r31.u32, ctx.r4.u32); \
