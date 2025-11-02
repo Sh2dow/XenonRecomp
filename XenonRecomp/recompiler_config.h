@@ -6,6 +6,12 @@ struct RecompilerSwitchTable
     std::vector<uint32_t> labels;
 };
 
+struct RecompilerFunctionInfo
+{
+    uint32_t size = 0;
+    bool noreturn = false;
+};
+
 struct RecompilerMidAsmHook
 {
     std::string name;
@@ -49,7 +55,7 @@ struct RecompilerConfig
     uint32_t saveVmx64Address = 0;
     uint32_t longJmpAddress = 0;
     uint32_t setJmpAddress = 0;
-    std::unordered_map<uint32_t, uint32_t> functions;
+    std::unordered_map<uint32_t, RecompilerFunctionInfo> functions;
     std::unordered_map<uint32_t, uint32_t> invalidInstructions;
     std::unordered_map<uint32_t, RecompilerMidAsmHook> midAsmHooks;
 

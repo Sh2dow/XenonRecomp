@@ -213,10 +213,10 @@ void Recompiler::Analyse()
         }
     }
 
-    for (auto& [address, size] : config.functions)
+    for (auto& [address, info] : config.functions)
     {
-        functions.emplace_back(address, size);
-        image.symbols.emplace(fmt::format("sub_{:X}", address), address, size, Symbol_Function);
+        functions.emplace_back(address, info.size);
+        image.symbols.emplace(fmt::format("sub_{:X}", address), address, info.size, Symbol_Function);
     }
 
     auto& pdata = *image.Find(".pdata");

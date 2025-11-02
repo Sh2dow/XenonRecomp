@@ -53,8 +53,10 @@ void RecompilerConfig::Load(const std::string_view& configFilePath)
             {
                 auto& funcTable = *func.as_table();
                 uint32_t address = *funcTable["address"].value<uint32_t>();
-                uint32_t size = *funcTable["size"].value<uint32_t>();
-                functions.emplace(address, size);
+                RecompilerFunctionInfo info;
+                info.size = *funcTable["size"].value<uint32_t>();
+                info.noreturn = funcTable["noreturn"].value_or(false);
+                functions.emplace(address, info);
             }
         }
 
